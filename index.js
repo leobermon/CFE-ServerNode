@@ -187,6 +187,28 @@ app.get('/interruptores/:idGabinete',(req, res) => {
 
 })
 
+//aqui es donde obtenemos el directorio telefonico 
+//agrupamos la lista de directorio por departamto 
+app.get('/directorio',(req, res) => {
+ 
+    db.getConnection((err, conn) => { conn.query(`SELECT di.nombre, di.apellido, extension, (SELECT nombre from puestos where id = di.puesto ) as puesto, (Select nombre from departamento where id = di.departamento ) as departamento, (Select abreviacion from zonas where id = di.zona ) as zona from directorio as di ORDER BY di.prioridad, di.extension` , function (err, result) {
+            if (err) {
+                res.send({ mensaje: 'error, no data DB', data: err });
+            } else {
+                if (result.length > 0) {
+                    console.log(`/directorio` + moment().format('HH::mm:ss'));
+                    res.send(result)
+                } else {
+                    console.log(`/directorio` + moment().format('HH::mm:ss'));
+                    res.send(result);
+                }
+            }
+            conn.release();
+        });
+    })
+
+})
+
 
 app.listen(PORT, () => {
     console.log('app running in: ' + PORT);
