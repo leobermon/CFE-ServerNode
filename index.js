@@ -14,34 +14,33 @@ const corsConf = {
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     preflightContinue: false,
     optionsSuccessStatus: 204
-  }
-  
-  app.use(cors(corsConf));
+}
 
-app.get('/subestaciones',(req, res) => {
- 
-        db.getConnection((err, conn) => {
-            // obtenemos todos los productos de ct = 3
-            conn.query("SELECT * FROM subestaciones WHERE active = 1", function (err, result) {
-                if (err) {
-                    res.send({ mensaje: 'error, no data DB', data: err });
+app.use(cors(corsConf));
+app.get('/subestaciones', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        // obtenemos todos los productos de ct = 3
+        conn.query("SELECT * FROM subestaciones WHERE active = 1", function (err, result) {
+            if (err) {
+                res.send({ mensaje: 'error, no data DB', data: err });
+            } else {
+                if (result.length > 0) {
+                    console.log('/subestaciones ' + moment().format('HH::mm:ss'));
+                    res.send(result)
                 } else {
-                    if (result.length > 0) {
-                        console.log('/subestaciones ' + moment().format('HH::mm:ss'));
-                        res.send(result)
-                    } else {
-                        console.log('/subestaciones' + moment().format('HH::mm:ss'));
-                        res.send(result);
-                    }
+                    console.log('/subestaciones' + moment().format('HH::mm:ss'));
+                    res.send(result);
                 }
-                conn.release();
-            });
-        })
+            }
+            conn.release();
+        });
+    })
 })
 
 
-app.get('/instalaciones',(req, res) => {
- 
+app.get('/instalaciones', (req, res) => {
+
     db.getConnection((err, conn) => {
         // obtenemos todos los productos de ct = 3
         conn.query("SELECT * FROM tipo_de_instalacion", function (err, result) {
@@ -62,10 +61,15 @@ app.get('/instalaciones',(req, res) => {
 
 })
 
-app.get('/equipos/:rack',(req, res) => {
- 
+
+app.get('/equipos/:rack', (req, res) => {
+
     db.getConnection((err, conn) => {
-        conn.query(`SELECT lista_de_equipos.*, equipos.modeloEquipo, modelo_equipo.imgActive FROM lista_de_equipos INNER JOIN equipos ON lista_de_equipos.equipo=equipos.id AND lista_de_equipos.gabinete = ${req.params.rack} INNER JOIN modelo_equipo ON modelo_equipo.ID = equipos.modeloEquipo ORDER BY lista_de_equipos.posicionRackStart DESC`, function (err, result) {
+        conn.query(`SELECT le.*, (select imgActive from modelo_equipo where id = le.modelo ) as imgActive, le.modelo as modeloEquipo
+        FROM lista_de_equipos as le
+        WHERE le.gabinete = ${req.params.rack}
+        ORDER BY posicionRackStart DESC
+        `, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -83,10 +87,34 @@ app.get('/equipos/:rack',(req, res) => {
 
 })
 
+app.get('/equipoNotas/:equipo', (req, res) => {
 
-app.get('/equipo/:idEquipo',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT lista_de_equipos.*, (SELECT nombre FROM equipos WHERE id = lista_de_equipos.equipo) AS nombreTipoEquipo , (SELECT modelo FROM modelo_equipo WHERE (SELECT modeloEquipo FROM equipos WHERE id = lista_de_equipos.equipo) = modelo_equipo.id) AS nombreModelo, (SELECT id FROM modelo_equipo WHERE (SELECT modeloEquipo FROM equipos WHERE id = lista_de_equipos.equipo) = modelo_equipo.id) AS nombreModeloId, (SELECT imgActive FROM modelo_equipo WHERE (SELECT modeloEquipo FROM equipos WHERE id = lista_de_equipos.equipo) = modelo_equipo.id) AS imgActive, (SELECT nombre FROM marcas WHERE (SELECT marca FROM equipos WHERE id = lista_de_equipos.equipo) = marcas.id) AS marcaNombre, (SELECT id FROM marcas WHERE (SELECT marca FROM equipos WHERE id = lista_de_equipos.equipo) = marcas.id) AS marcaId FROM lista_de_equipos WHERE id = ${req.params.idEquipo}` , function (err, result) {
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT * FROM  notas WHERE equipo = ${req.params.equipo}`, function (err, result) {
+            if (err) {
+                res.send({ mensaje: 'error, no data DB', data: err });
+            } else {
+                if (result.length > 0) {
+                    console.log(`/equipoNotas/ ${req.params.rack} -` + moment().format('HH::mm:ss'));
+                    res.send(result)
+                } else {
+                    console.log(`/equipoNotas/ ${req.params.rack} - ` + moment().format('HH::mm:ss'));
+                    res.send(result);
+                }
+            }
+            conn.release();
+        });
+    })
+
+})
+
+
+
+
+app.get('/equipo/:idEquipo', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(` SELECT lista_de_equipos.*, (SELECT nombre FROM modelo_equipo WHERE id = lista_de_equipos.modelo) AS nombreTipoEquipo, (SELECT modelo FROM modelo_equipo WHERE id =lista_de_equipos.modelo) AS nombreModelo, (SELECT imgActive FROM modelo_equipo WHERE lista_de_equipos.modelo = modelo_equipo.id) AS imgActive, (SELECT nombre FROM marcas WHERE (SELECT marca FROM modelo_equipo WHERE id = lista_de_equipos.modelo) = marcas.id) AS marcaNombre,(SELECT etiqueta from gabinetes WHERE id = lista_de_equipos.gabinete) as gabineteName,(SELECT alias FROM subestaciones WHERE id = (SELECT subestacion FROM gabinetes WHERE id = lista_de_equipos.gabinete)) as se, (SELECT id FROM marcas WHERE (SELECT marca FROM modelo_equipo WHERE id = lista_de_equipos.modelo) = marcas.id) AS marcaId FROM lista_de_equipos WHERE id = ${req.params.idEquipo}`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -105,9 +133,10 @@ app.get('/equipo/:idEquipo',(req, res) => {
 })
 
 
-app.get('/equipoInfoExtra/:idEquipo',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT *, (SELECT caracteristica FROM tipo_caracteristicas WHERE id = caracteristicas_de_equipos.caracteristica_id) AS caracteristicaLang  FROM caracteristicas_de_equipos WHERE equipo_id = ${req.params.idEquipo}` , function (err, result) {
+app.get('/equipoInfoExtra/:idEquipo', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT *, (SELECT caracteristica FROM tipo_caracteristicas WHERE id = caracteristicas_de_equipos.caracteristica_id) AS caracteristicaLang  FROM caracteristicas_de_equipos WHERE equipo_id = ${req.params.idEquipo}`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -125,9 +154,10 @@ app.get('/equipoInfoExtra/:idEquipo',(req, res) => {
 
 })
 
-app.get('/equipoPuertosEspecificos/:idEquipo',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT * FROM puertos WHERE equipo_id = ${req.params.idEquipo}` , function (err, result) {
+app.get('/equipoPuertosEspecificos/:idEquipo', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT * FROM puertos WHERE equipo_id = ${req.params.idEquipo}`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -146,9 +176,31 @@ app.get('/equipoPuertosEspecificos/:idEquipo',(req, res) => {
 })
 
 
-app.get('/gabinetes/:idGabinete',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT archivo FROM gabinetes WHERE id = ${req.params.idGabinete}` , function (err, result) {
+app.get('/archivos/:idGabinete', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT id, nombre_archivo, folder FROM archivos WHERE gabinete_id = ${req.params.idGabinete}`, function (err, result) {
+            if (err) {
+                res.send({ mensaje: 'error, no data DB', data: err });
+            } else {
+                if (result.length > 0) {
+                    console.log(`/gabinetes/ ${req.params.idEquipo} - ` + moment().format('HH::mm:ss'));
+                    res.send(result)
+                } else {
+                    console.log(`/gabinetes/ ${req.params.idEquipo} - ` + moment().format('HH::mm:ss'));
+                    res.send(result);
+                }
+            }
+            conn.release();
+        });
+    })
+
+})
+
+app.get('/gabinete/:idGabinete', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`select subestacion, etiqueta, (select alias from subestaciones where id = subestacion) as abrev from gabinetes where id = ${req.params.idGabinete}`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -167,9 +219,12 @@ app.get('/gabinetes/:idGabinete',(req, res) => {
 })
 
 
-app.get('/interruptores/:idGabinete',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT * FROM interruptores WHERE gabinete = ${req.params.idGabinete}` , function (err, result) {
+
+
+app.get('/interruptores/:idGabinete', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT * FROM interruptores WHERE gabinete = ${req.params.idGabinete}`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -189,9 +244,10 @@ app.get('/interruptores/:idGabinete',(req, res) => {
 
 //aqui es donde obtenemos el directorio telefonico 
 //agrupamos la lista de directorio por departamto 
-app.get('/directorio',(req, res) => {
- 
-    db.getConnection((err, conn) => { conn.query(`SELECT di.nombre, di.apellido, extension, (SELECT nombre from puestos where id = di.puesto ) as puesto, (Select nombre from departamento where id = di.departamento ) as departamento, (Select abreviacion from zonas where id = di.zona ) as zona from directorio as di ORDER BY di.prioridad, di.extension` , function (err, result) {
+app.get('/directorio', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT di.nombre, di.apellido, extension, (SELECT nombre from puestos where id = di.puesto ) as puesto, (Select nombre from departamento where id = di.departamento ) as departamento, (Select abreviacion from zonas where id = di.zona ) as zona from directorio as di ORDER BY di.prioridad, di.extension`, function (err, result) {
             if (err) {
                 res.send({ mensaje: 'error, no data DB', data: err });
             } else {
@@ -227,7 +283,7 @@ function obtenerProductosTemporalesSyscomUpdate() {
                         console.log('si hay datos btenerProductosTemporalesSyscomUpdate');
                         resolve(result)
                     } else {
-                        console.log('no hay datos btenerProductosTemporalesSyscomUpdate'); 
+                        console.log('no hay datos btenerProductosTemporalesSyscomUpdate');
                         resolve(false)
                     }
                 }
