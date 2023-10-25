@@ -132,6 +132,29 @@ app.get('/equipo/:idEquipo', (req, res) => {
 
 })
 
+app.get('/equiposr3', (req, res) => {
+
+    db.getConnection((err, conn) => {
+        conn.query(`SELECT * FROM r3`, function (err, result) {
+            if (err) {
+                res.send({ mensaje: 'error, no data DB', data: err });
+            } else {
+                if (result.length > 0) {
+                    console.log(`/equiposr3 - ` + moment().format('HH::mm:ss'));
+                    res.send(result)
+                } else {
+                    console.log(`/equiposr3 - ` + moment().format('HH::mm:ss'));
+                    res.send(result);
+                }
+            }
+            conn.release();
+        });
+    })
+
+})
+
+
+
 
 app.get('/equipoInfoExtra/:idEquipo', (req, res) => {
 
